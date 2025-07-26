@@ -110,7 +110,7 @@ pytest
 ## 🧑 Author
 
 Developed by **Goutham G**  
-📧 Contact: [Your Email Here]
+📧 Contact: goutham.g1602@gmail.com
 
 ---
 
