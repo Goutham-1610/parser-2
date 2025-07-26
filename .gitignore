@@ -1,0 +1,54 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*.so
+
+# Environment variables
+.env
+
+# Virtual environment
+venv/
+env/
+
+# VS Code settings
+.vscode/
+
+# PyInstaller
+*.spec
+
+# Test and coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# MyPy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Logs
+*.log
+
+# macOS system files
+.DS_Store
+
+# Python egg metadata
+*.egg-info/
+.eggs/
+
+# Pip
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Installer logs
+install.log
+
+# Output and cache
+build/
+dist/
+*.tgz
+*.gz
+*.zip
+
+# Database or app-specific
+instance/
