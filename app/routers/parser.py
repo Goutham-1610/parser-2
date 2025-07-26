@@ -26,7 +26,7 @@ def convert_objectid(obj):
     if isinstance(obj, ObjectId):
         return str(obj)
     elif isinstance(obj, datetime):
-        return obj.isoformat()  # Convert datetime to ISO string
+        return obj.isoformat()
     elif isinstance(obj, dict):
         return {k: convert_objectid(v) for k, v in obj.items()}
     elif isinstance(obj, list):
@@ -71,7 +71,6 @@ def determine_file_type(file: UploadFile) -> str:
         )
     
     return "unknown"
-
 
 async def extract_text_from_resume(file: UploadFile) -> tuple[str, dict]:
     """Extract text and links from resume with robust error handling"""
@@ -235,10 +234,13 @@ async def parse_resume(
         if not val and links.get(field):
             pi[field] = links[field]
         elif val and not val.startswith("http"):
-            if "linkedin.com" in val:
+            if "linkedin.com" in val.lower():
                 pi[field] = "https://" + val.replace("://", "")
-            elif "github.com" in val:
+            elif "github.com" in val.lower():
                 pi[field] = "https://" + val.replace("://", "")
+        # Ensure empty fields are stored as empty strings, not None
+        if not pi[field]:
+            pi[field] = ""
 
     # Initialize data structures
     summary = extracted_data.setdefault("professional_summary", {})
@@ -291,7 +293,6 @@ async def parse_resume(
     except Exception as e:
         print(f"Database insertion error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
-
 
 @router.post("/rank-resumes/")
 async def rank_resumes(
@@ -372,48 +373,47 @@ async def rank_resumes(
     
     return JSONResponse(content=convert_objectid(response_data))
 
-
-# @router.post("/generate-questions/")
-# async def generate_questions(
-#     resume_id: str = Form(...),
-#     job_description: str = Form(...),
-#     user_email: str = Depends(get_current_user)
-# ):
-#     """Generate screening questions for a specific candidate"""
+@router.post("/generate-questions/")
+async def generate_questions(
+    resume_id: str = Form(...),
+    job_description: str = Form(...),
+    user_email: str = Depends(get_current_user)
+):
+    """Generate screening questions for a specific candidate"""
     
-#     if not ObjectId.is_valid(resume_id):
-#         raise HTTPException(status_code=400, detail="Invalid resume ID format")
+    if not ObjectId.is_valid(resume_id):
+        raise HTTPException(status_code=400, detail="Invalid resume ID format")
     
-#     if not job_description.strip():
-#         raise HTTPException(status_code=400, detail="Job description cannot be empty")
+    if not job_description.strip():
+        raise HTTPException(status_code=400, detail="Job description cannot be empty")
     
-#     # Get the specific resume
-#     try:
-#         resume = collection.find_one({
-#             "_id": ObjectId(resume_id),
-#             "uploaded_by": user_email
-#         })
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+    # Get the specific resume
+    try:
+        resume = collection.find_one({
+            "_id": ObjectId(resume_id),
+            "uploaded_by": user_email
+        })
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
     
-#     if not resume:
-#         raise HTTPException(status_code=404, detail="Resume not found or access denied")
+    if not resume:
+        raise HTTPException(status_code=404, detail="Resume not found or access denied")
     
-#     # Generate questions
-#     try:
-#         questions = generate_screening_questions(resume, job_description)
-#         candidate_name = resume.get("personal_information", {}).get("full_name", "Candidate")
+    # Generate questions
+    try:
+        questions = generate_screening_questions(resume, job_description)
+        candidate_name = resume.get("personal_information", {}).get("full_name", "Candidate")
         
-#         return JSONResponse(content={
-#             "message": "Screening questions generated successfully",
-#             "candidate_name": candidate_name,
-#             "resume_id": resume_id,
-#             "questions": questions,
-#             "total_questions": len(questions),
-#             "job_description": job_description
-#         })
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=f"Error generating questions: {str(e)}")
+        return JSONResponse(content={
+            "message": "Screening questions generated successfully",
+            "candidate_name": candidate_name,
+            "resume_id": resume_id,
+            "questions": questions,
+            "total_questions": len(questions),
+            "job_description": job_description
+        })
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error generating questions: {str(e)}")
 
 @router.get("/my-resumes/")
 async def get_my_resumes(user_email: str = Depends(get_current_user)):
@@ -433,7 +433,6 @@ async def get_my_resumes(user_email: str = Depends(get_current_user)):
         })
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
-
 
 @router.post("/project/upload-certificate")
 async def upload_project_certificate(

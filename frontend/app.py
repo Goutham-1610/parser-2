@@ -1,8 +1,10 @@
 import streamlit as st
 import requests
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 import plotly.express as px
+import plotly.graph_objects as go
+import time
 
 # Configuration
 API_BASE_URL = "http://localhost:8000/api"
@@ -25,7 +27,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS
+# Custom CSS (Fixed HTML encoding)
 st.markdown("""
 <style>
     .metric-card {
@@ -45,6 +47,19 @@ st.markdown("""
     .score-high { color: #28a745; font-weight: bold; }
     .score-medium { color: #ffc107; font-weight: bold; }
     .score-low { color: #dc3545; font-weight: bold; }
+    .live-indicator {
+        background-color: #ff4444;
+        border-radius: 50%;
+        width: 10px;
+        height: 10px;
+        display: inline-block;
+        animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+        0% { opacity: 1; }
+        50% { opacity: 0.5; }
+        100% { opacity: 1; }
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -160,10 +175,6 @@ def upload_page():
                 status_text.text(f"Processing {i+1}/{len(uploaded_files)}: {uploaded_file.name}")
                 
                 try:
-                    # Extract candidate name from filename (basic approach)
-                    candidate_name = uploaded_file.name.replace('.pdf', '').replace('.docx', '').replace('.txt', '')
-                    candidate_email = f"candidate{i+1}@temp.com"  # Temporary email
-                    
                     files = {
                         "file": (
                             uploaded_file.name,
@@ -171,12 +182,10 @@ def upload_page():
                             uploaded_file.type
                         )
                     }
-                    data = {"name": candidate_name, "email": candidate_email}
                     
                     response = st.session_state.session.post(
                         f"{API_BASE_URL}/parse-resume/", 
-                        files=files, 
-                        data=data
+                        files=files
                     )
                     
                     if response.status_code == 200:
@@ -282,7 +291,7 @@ def rank_all_resumes(job_description, total_count):
                         top_score = max(r['overall_score'] for r in rankings) if rankings else 0
                         st.metric("🏆 Top Score", f"{top_score}%")
                     
-                    # Score distribution chart
+                    # Score distribution chart with unique key
                     if len(rankings) > 1:
                         scores = [r['overall_score'] for r in rankings]
                         fig = px.histogram(
@@ -293,7 +302,7 @@ def rank_all_resumes(job_description, total_count):
                             color_discrete_sequence=['#1f77b4']
                         )
                         fig.update_layout(showlegend=False)
-                        st.plotly_chart(fig, use_container_width=True)
+                        st.plotly_chart(fig, use_container_width=True, key="ranking_score_distribution")
                     
                     st.divider()
                     st.subheader("🏆 Candidate Rankings")
@@ -377,6 +386,569 @@ def display_simplified_ranking(ranking, position):
         
         st.divider()
 
+def analytics_page():
+    """Enhanced Real-Time HR Analytics Dashboard with Real Data"""
+    st.title("📊 Real-Time HR Analytics Dashboard")
+    st.write("Live insights using actual resume data from your database")
+    
+    # Real-time controls
+    col1, col2, col3, col4 = st.columns([2, 1, 1, 1])
+    
+    with col1:
+        st.markdown('<div class="live-indicator"></div> **Live Analytics - Real Data**', unsafe_allow_html=True)
+    
+    with col2:
+        auto_refresh = st.checkbox("🔄 Auto Refresh", value=False)
+    
+    with col3:
+        refresh_interval = st.selectbox("Refresh Rate (s)", [10, 30, 60, 120], index=1)
+    
+    with col4:
+        if st.button("🔄 Refresh Now"):
+            st.rerun()
+    
+    # Advanced Filters Section
+    with st.expander("🎛️ Advanced Filters", expanded=False):
+        render_advanced_filters()
+    
+    # Real-time dashboard
+    if auto_refresh:
+        placeholder = st.empty()
+        
+        for i in range(0, refresh_interval + 1):
+            with placeholder.container():
+                render_analytics_content()
+                
+                if i < refresh_interval:
+                    st.info(f"Next refresh in {refresh_interval - i} seconds...")
+                    time.sleep(1)
+                else:
+                    st.success("Dashboard updated!")
+                    st.rerun()
+    else:
+        render_analytics_content()
+    
+    # Real Filtered Resumes Section
+    st.divider()
+    render_filtered_resumes()
+
+def render_advanced_filters():
+    """Advanced filtering interface with real filter options and debugging"""
+    try:
+        # Get REAL filter options from your API
+        filter_response = st.session_state.session.get(f"{API_BASE_URL}/analytics/advanced-filters")
+        
+        if filter_response.status_code == 200:
+            filter_options = filter_response.json()
+            st.success("✅ Using real filter options from database")
+            
+            # Debug: Show what we received
+            with st.expander("🔍 Debug - API Response", expanded=False):
+                st.json(filter_options)
+        else:
+            st.warning("⚠️ API failed, using default options")
+            filter_options = {
+                'skills': ['Python', 'JavaScript', 'React', 'Machine Learning'],
+                'locations': ['Bangalore', 'Mumbai', 'Delhi'],
+                'education_degrees': ['Bachelor of Technology', 'Master of Science'],
+                'date_range': {'min': '2025-07-26', 'max': '2025-07-26'}
+            }
+        
+        # Safely extract filter data
+        skills = filter_options.get('skills', [])
+        locations = filter_options.get('locations', [])
+        degrees = filter_options.get('education_degrees', [])
+        
+        st.write(f"**Found:** {len(skills)} skills, {len(locations)} locations, {len(degrees)} degrees")
+        
+        # Display filter columns
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.write("**📊 Data Filters**")
+            
+            # Safe date range handling
+            date_range_info = filter_options.get('date_range', {})
+            if date_range_info and date_range_info.get('min'):
+                try:
+                    max_date = datetime.fromisoformat(date_range_info['max']).date()
+                    st.info(f"📅 Data available for: {max_date}")
+                except:
+                    st.info("📅 No date range available")
+            
+            # Score range filter (always available)
+            score_range = st.slider(
+                "Score Range",
+                min_value=0,
+                max_value=100,
+                value=(60, 100),
+                step=5,
+                key="analytics_score_range_filter"
+            )
+        
+        with col2:
+            st.write("**🛠️ Skills & Experience**")
+            
+            # Skills filter
+            if skills and len(skills) > 0:
+                safe_skills = [str(skill) for skill in skills if skill][:20]
+                selected_skills = st.multiselect(
+                    "Filter by Skills",
+                    options=safe_skills,
+                    default=[],
+                    key="analytics_skills_filter"
+                )
+            else:
+                st.info("No skills data available")
+                selected_skills = []
+            
+            # Experience level filter (always available)
+            experience_levels = st.multiselect(
+                "Experience Level",
+                options=["entry", "mid", "senior"],
+                default=["entry", "mid", "senior"],
+                key="analytics_experience_filter"
+            )
+        
+        with col3:
+            st.write("**🎓 Background Filters**")
+            
+            # Location filter
+            if locations and len(locations) > 0:
+                safe_locations = [str(loc) for loc in locations if loc][:15]
+                selected_locations = st.multiselect(
+                    "Filter by Location",
+                    options=safe_locations,
+                    default=[],
+                    key="analytics_locations_filter"
+                )
+            else:
+                st.info("No location data available")
+                selected_locations = []
+            
+            # Education filter
+            if degrees and len(degrees) > 0:
+                safe_degrees = [str(deg) for deg in degrees if deg][:10]
+                selected_degrees = st.multiselect(
+                    "Filter by Education",
+                    options=safe_degrees,
+                    default=[],
+                    key="analytics_education_filter"
+                )
+            else:
+                st.info("No education data available")
+                selected_degrees = []
+        
+        # Store filters in session state
+        st.session_state.analytics_filters = {
+            'skills': selected_skills,
+            'experience_levels': experience_levels,
+            'score_range': score_range,
+            'locations': selected_locations,
+            'degrees': selected_degrees
+        }
+        
+        # Apply filters button
+        if st.button("📊 Apply Filters", key="apply_analytics_filters"):
+            st.success("Filters applied! Dashboard will update with filtered data.")
+            st.rerun()
+        
+    except Exception as e:
+        st.error(f"Error loading filter options: {str(e)}")
+
+def render_analytics_content():
+    """Complete analytics content with REAL data from APIs"""
+    
+    filters = getattr(st.session_state, 'analytics_filters', {})
+    
+    try:
+        # Show loading state
+        st.write("🔄 Loading analytics data from real database...")
+        
+        # Prepare API parameters for REAL data
+        params = {
+            'skills_filter': filters.get('skills', []),
+            'score_range_min': filters.get('score_range', [0, 100])[0],
+            'score_range_max': filters.get('score_range', [0, 100])[1],
+            'experience_levels': filters.get('experience_levels', [])
+        }
+        params = {k: v for k, v in params.items() if v}
+        
+        # Make REAL API calls to analytics endpoints
+        with st.spinner("📊 Fetching data from backend..."):
+            recruitment_response = st.session_state.session.get(f"{API_BASE_URL}/analytics/recruitment-metrics", params=params)
+            skills_response = st.session_state.session.get(f"{API_BASE_URL}/analytics/skills-analysis")
+            ranking_response = st.session_state.session.get(f"{API_BASE_URL}/analytics/ranking-performance")
+            dashboard_response = st.session_state.session.get(f"{API_BASE_URL}/analytics/real-time-dashboard")
+        
+        # Debug: Show response status codes
+        st.write("**🔍 API Response Status:**")
+        st.write(f"- Recruitment metrics: {recruitment_response.status_code}")
+        st.write(f"- Skills analysis: {skills_response.status_code}")
+        st.write(f"- Ranking performance: {ranking_response.status_code}")
+        st.write(f"- Real-time dashboard: {dashboard_response.status_code}")
+        
+        # Check if all calls succeeded
+        if all(r.status_code == 200 for r in [recruitment_response, skills_response, ranking_response, dashboard_response]):
+            # Parse REAL data from APIs
+            recruitment_data = recruitment_response.json()
+            skills_data = skills_response.json()
+            ranking_data = ranking_response.json()
+            dashboard_data = dashboard_response.json()
+            
+            st.success("✅ Successfully loaded real-time analytics data")
+            
+            # Show data counts
+            recent_uploads = dashboard_data.get('recent_uploads', [])
+            top_skills = skills_data.get('top_skills', [])
+            
+            st.write(f"**📊 Data Summary:**")
+            st.write(f"- Recent uploads: {len(recent_uploads)}")
+            st.write(f"- Top skills found: {len(top_skills)}")
+            st.write(f"- Total resumes: {recruitment_data.get('total_resumes', 0)}")
+            
+            # Debug: Show data structure (optional)
+            with st.expander("🔍 Debug - Raw Data", expanded=False):
+                st.write("**Dashboard Data:**")
+                st.json(dashboard_data)
+            
+            # Try to render components with real data
+            if recruitment_data.get('total_resumes', 0) > 0:
+                render_real_time_status(dashboard_data)
+                render_enhanced_kpi_cards(recruitment_data, ranking_data, dashboard_data)
+                render_real_time_charts(recruitment_data, skills_data, ranking_data, dashboard_data)
+                render_live_activity_feed(dashboard_data)
+            else:
+                st.warning("⚠️ No resume data available. Upload some resumes first to see analytics!")
+                st.info("👉 Go to 'Upload Resumes' to add data to your database")
+                
+        else:
+            st.error("❌ Some API calls failed")
+            # Show specific error details
+            responses = [recruitment_response, skills_response, ranking_response, dashboard_response]
+            endpoint_names = ["recruitment-metrics", "skills-analysis", "ranking-performance", "real-time-dashboard"]
+            
+            for i, response in enumerate(responses):
+                if response.status_code != 200:
+                    st.write(f"- **{endpoint_names[i]}**: {response.status_code}")
+                    try:
+                        error_detail = response.json().get('detail', 'Unknown error')
+                        st.write(f"  Error: {error_detail}")
+                    except:
+                        st.write(f"  Raw error: {response.text}")
+        
+    except requests.exceptions.ConnectionError:
+        st.error("❌ Cannot connect to analytics API")
+        st.write("**Troubleshooting Steps:**")
+        st.write("1. Make sure FastAPI server is running: `uvicorn app.main:app --reload --port 8000`")
+        st.write("2. Check if analytics router is included in main.py")
+        st.write("3. Verify API_BASE_URL is correct")
+        st.write("4. Check if MongoDB is running and accessible")
+    except Exception as e:
+        st.error(f"❌ Error loading real-time analytics: {str(e)}")
+        st.write("**Full error details:**")
+        st.code(str(e))
+
+def render_real_time_status(dashboard_data):
+    """Render real-time system status with actual data"""
+    activity = dashboard_data.get('activity_summary', {})
+    health = dashboard_data.get('system_health', {})
+    
+    st.subheader("🔴 System Status - Real Data")
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.metric(
+            "🟢 System Status", 
+            "ACTIVE",
+            delta="Real-time"
+        )
+    
+    with col2:
+        st.metric(
+            "⚡ Processing Queue", 
+            activity.get('processing_queue', 0),
+            delta=f"{activity.get('uploads_last_24h', 0)} in 24h"
+        )
+    
+    with col3:
+        st.metric(
+            "👥 Active Sessions", 
+            activity.get('active_sessions', 1),
+            delta="Current"
+        )
+    
+    with col4:
+        st.metric(
+            "🔧 API Response", 
+            health.get('api_response_time', 'N/A'),
+            delta=health.get('database_status', 'Unknown')
+        )
+
+def render_enhanced_kpi_cards(recruitment_data, ranking_data, dashboard_data):
+    """Render enhanced KPI cards with real filter information"""
+    
+    st.subheader("📊 Key Performance Indicators - Real Data")
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        total = recruitment_data.get('total_resumes', 0)
+        filtered = recruitment_data.get('filtered_resumes', 0)
+        st.metric(
+            "📤 Total Resumes", 
+            f"{filtered:,}",
+            delta=f"of {total:,} total" if filtered != total else None,
+            help="Filtered results based on current criteria"
+        )
+    
+    with col2:
+        avg_score = ranking_data.get('average_score', 0)
+        st.metric(
+            "⭐ Average Score", 
+            f"{avg_score:.1f}%",
+            delta=f"{avg_score-70:.1f}%" if avg_score > 70 else f"{70-avg_score:.1f}%",
+            delta_color="normal" if avg_score > 70 else "inverse"
+        )
+    
+    with col3:
+        high_performers = ranking_data.get('high_performers', 0)
+        total_ranked = ranking_data.get('total_ranked', 1)
+        high_performer_rate = (high_performers / total_ranked) * 100 if total_ranked > 0 else 0
+        st.metric(
+            "🏆 High Performers", 
+            f"{high_performer_rate:.1f}%",
+            delta=f"{high_performers} candidates"
+        )
+    
+    with col4:
+        uploads_24h = dashboard_data.get('activity_summary', {}).get('uploads_last_24h', 0)
+        st.metric(
+            "📈 Activity (24h)", 
+            f"{uploads_24h}",
+            delta="uploads"
+        )
+
+def render_real_time_charts(recruitment_data, skills_data, ranking_data, dashboard_data):
+    """Render real-time interactive charts with unique keys and real data"""
+    
+    # Hourly activity chart
+    st.subheader("📈 Real-Time Activity")
+    hourly_data = dashboard_data.get('hourly_activity', [])
+    if hourly_data and len(hourly_data) > 0:
+        df_hourly = pd.DataFrame(hourly_data)
+        
+        fig_hourly = px.bar(
+            df_hourly,
+            x='hour',
+            y='uploads',
+            title="Uploads by Hour (Last 24h) - Real Data",
+            color='uploads',
+            color_continuous_scale='blues'
+        )
+        fig_hourly.update_layout(showlegend=False, height=400)
+        st.plotly_chart(fig_hourly, use_container_width=True, key="hourly_activity_chart")
+    else:
+        st.info("No hourly activity data available yet")
+    
+    # Performance trends and skills charts
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.subheader("📊 Performance Trends")
+        trends = ranking_data.get('performance_trends', [])
+        if trends and len(trends) > 0:
+            df_trends = pd.DataFrame(trends)
+            
+            fig_trends = px.line(
+                df_trends,
+                x='date',
+                y='average_score',
+                title="Average Score Trend (7 days) - Real Data",
+                markers=True
+            )
+            fig_trends.update_layout(height=400)
+            st.plotly_chart(fig_trends, use_container_width=True, key="performance_trends_chart")
+        else:
+            st.info("No performance trend data available yet")
+    
+    with col2:
+        st.subheader("🛠️ Skills Trends")
+        skills_with_trends = skills_data.get('top_skills', [])
+        if skills_with_trends and len(skills_with_trends) > 0:
+            skills_df = pd.DataFrame(skills_with_trends)
+            
+            fig_skills = px.bar(
+                skills_df,
+                x='count',
+                y='skill',
+                orientation='h',
+                title="Top Skills with Growth - Real Data",
+                color='trend',
+                color_continuous_scale='RdYlGn',
+                hover_data=['trend']
+            )
+            fig_skills.update_layout(height=400, yaxis={'categoryorder':'total ascending'})
+            st.plotly_chart(fig_skills, use_container_width=True, key="skills_trends_chart")
+        else:
+            st.info("No skills trend data available yet")
+
+def render_live_activity_feed(dashboard_data):
+    """Render live activity feed with REAL data"""
+    st.subheader("🔴 Live Activity Feed - Real Data")
+    
+    recent_uploads = dashboard_data.get('recent_uploads', [])
+    
+    if recent_uploads and len(recent_uploads) > 0:
+        st.write(f"**Showing {len(recent_uploads)} recent uploads:**")
+        
+        for upload in recent_uploads:
+            col1, col2, col3, col4 = st.columns([2, 1, 1, 1])
+            
+            with col1:
+                st.write(f"**{upload.get('candidate_name', 'Unknown')}**")
+            
+            with col2:
+                st.write(f"⏱️ {upload.get('time_ago', 'Unknown')}")
+            
+            with col3:
+                file_type = upload.get('file_type', 'unknown').upper()
+                st.write(f"📄 {file_type}")
+            
+            with col4:
+                status = upload.get('processing_status', 'unknown')
+                color = "🟢" if status == "completed" else "🟡" if status == "processing" else "🔴"
+                st.write(f"{color} {status.title()}")
+    else:
+        st.info("No recent activity to display. Upload some resumes to see live activity!")
+    
+    # Add timestamp
+    st.caption(f"Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+
+def render_filtered_resumes():
+    """Display resumes that match the current filters using REAL API"""
+    
+    filters = getattr(st.session_state, 'analytics_filters', {})
+    
+    if not any(filters.values()):
+        st.info("🎛️ Apply filters above to see filtered resume results")
+        return
+    
+    st.subheader("📋 Filtered Resume Results - Real Data")
+    
+    try:
+        # Prepare API parameters for real filtering
+        params = {
+            'skills_filter': filters.get('skills', []),
+            'locations_filter': filters.get('locations', []),
+            'education_filter': filters.get('degrees', []),
+            'experience_levels': filters.get('experience_levels', []),
+            'score_min': filters.get('score_range', [0, 100])[0],
+            'score_max': filters.get('score_range', [0, 100])[1],
+            'limit': 20
+        }
+        
+        # Remove empty parameters
+        params = {k: v for k, v in params.items() if v}
+        
+        # Make API call to get REAL filtered resumes
+        with st.spinner("🔍 Filtering resumes from database..."):
+            response = st.session_state.session.get(f"{API_BASE_URL}/analytics/filtered-resumes", params=params)
+            
+            if response.status_code == 200:
+                result = response.json()
+                filtered_resumes = result.get('filtered_resumes', [])
+                total_matches = result.get('total_matches', 0)
+                
+                if filtered_resumes:
+                    st.success(f"✅ Found {total_matches} real resumes matching your filters")
+                    
+                    # Display summary with REAL data
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.metric("📊 Total Matches", total_matches)
+                    with col2:
+                        avg_score = sum(r.get('calculated_score', 0) for r in filtered_resumes) / len(filtered_resumes)
+                        st.metric("📈 Average Score", f"{avg_score:.1f}%")
+                    with col3:
+                        high_quality = sum(1 for r in filtered_resumes if r.get('calculated_score', 0) >= 80)
+                        st.metric("⭐ High Quality", f"{high_quality}/{total_matches}")
+                    
+                    st.divider()
+                    
+                    # Display REAL filtered resumes
+                    for i, resume in enumerate(filtered_resumes, 1):
+                        display_real_resume_card(resume, i)
+                        
+                else:
+                    st.warning("⚠️ No resumes match your current filters. Try adjusting the filter criteria.")
+                    
+            else:
+                st.error(f"❌ Failed to fetch filtered resumes. Status: {response.status_code}")
+                
+    except Exception as e:
+        st.error(f"Error filtering resumes: {str(e)}")
+
+def display_real_resume_card(resume, position):
+    """Display a real resume card with actual data from database"""
+    personal_info = resume.get('personal_information', {})
+    prof_summary = resume.get('professional_summary', {})
+    
+    # Extract REAL data from database
+    name = personal_info.get('full_name', 'Unknown')
+    email = personal_info.get('email', '')
+    location = personal_info.get('location', '')
+    skills = prof_summary.get('skills', [])[:8]
+    experience_count = len(resume.get('experience', []))
+    education = resume.get('education', [{}])[0].get('degree', '') if resume.get('education') else ''
+    calculated_score = resume.get('calculated_score', 0)
+    
+    # Color coding based on actual calculated score
+    if calculated_score >= 80:
+        score_color = "#28a745"
+        badge = "🥇"
+    elif calculated_score >= 70:
+        score_color = "#17a2b8"
+        badge = "🥈"
+    elif calculated_score >= 60:
+        score_color = "#ffc107"
+        badge = "🥉"
+    else:
+        score_color = "#dc3545"
+        badge = "📋"
+    
+    with st.container():
+        col1, col2, col3 = st.columns([3, 2, 1])
+        
+        with col1:
+            st.markdown(f"""
+            <div style="border-left: 4px solid {score_color}; padding-left: 15px; margin: 10px 0;">
+                <h4>{badge} #{position} - {name}</h4>
+                <p><strong>📧 Email:</strong> {email}</p>
+                <p><strong>📍 Location:</strong> {location}</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col2:
+            if skills:
+                st.write("**🛠️ Real Skills:**")
+                skills_text = " • ".join(skills)
+                st.write(skills_text)
+            
+            st.write(f"**📈 Experience:** {experience_count} positions")
+            if education:
+                st.write(f"**🎓 Education:** {education}")
+        
+        with col3:
+            st.metric("Real Score", f"{calculated_score}%")
+            
+            if st.button(f"📋 View Full Resume", key=f"view_real_resume_{position}"):
+                st.session_state.selected_resume_id = resume.get('_id')
+                st.success(f"✅ Selected {name} - showing real database record")
+        
+        st.divider()
+
 def my_resumes_page():
     """Display user's uploaded resumes with complete data"""
     st.title("📂 My Resumes")
@@ -428,7 +1000,7 @@ def my_resumes_page():
 def display_complete_resume(resume):
     """Display complete resume data with all fields"""
     with st.expander("📋 Complete Resume Details", expanded=True):
-        # Personal Information Section - ENHANCED
+        # Personal Information Section
         st.subheader("👤 Personal Information")
         personal_info = resume.get('personal_information', {})
         
@@ -457,7 +1029,7 @@ def display_complete_resume(resume):
         
         st.divider()
         
-        # Professional Summary Section - COMPLETE
+        # Professional Summary Section
         st.subheader("📝 Professional Summary")
         prof_summary = resume.get('professional_summary', {})
         
@@ -471,196 +1043,27 @@ def display_complete_resume(resume):
         skills = prof_summary.get('skills', [])
         if skills:
             st.write("**Skills:**")
-            # Display skills as tags/chips
+            # Enhanced skills display with better styling
             skills_html = ""
             for skill in skills:
-                skills_html += f'<span style="background-color: #2563eb; padding: 2px 8px; margin: 2px; border-radius: 12px; font-size: 12px;">{skill}</span> '
+                skills_html += f'''
+                <span style="
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                    color: white; 
+                    padding: 4px 12px; 
+                    margin: 2px; 
+                    border-radius: 16px; 
+                    font-size: 12px; 
+                    font-weight: 500;
+                    display: inline-block;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                ">{skill}</span> '''
             st.markdown(skills_html, unsafe_allow_html=True)
         else:
             st.write("**Skills:** Not provided")
-        
-        languages = prof_summary.get('languages', [])
-        if languages:
-            st.write("**Languages:**")
-            st.write(" • ".join(languages))
-        else:
-            st.write("**Languages:** Not provided")
-        
-        st.divider()
-        
-        # Experience Section - COMPLETE
-        st.subheader("💼 Work Experience")
-        experience = resume.get('experience', [])
-        if experience:
-            for i, exp in enumerate(experience, 1):
-                st.write(f"**Experience {i}:**")
-                
-                col1, col2 = st.columns([3, 1])
-                with col1:
-                    role = exp.get('role', 'Not specified')
-                    company = exp.get('company', 'Not specified')
-                    st.write(f"• **Position:** {role}")
-                    st.write(f"• **Company:** {company}")
-                with col2:
-                    period = exp.get('period', 'Not specified')
-                    st.write(f"• **Duration:** {period}")
-                
-                description = exp.get('description', '')
-                if description and description.strip():
-                    st.write(f"• **Description:** {description}")
-                else:
-                    st.write("• **Description:** Not provided")
-                st.write("")
-        else:
-            st.write("No work experience provided")
-        
-        st.divider()
-        
-        # Education Section - COMPLETE
-        st.subheader("🎓 Education")
-        education = resume.get('education', [])
-        if education:
-            for i, edu in enumerate(education, 1):
-                st.write(f"**Education {i}:**")
-                
-                col1, col2 = st.columns(2)
-                with col1:
-                    degree = edu.get('degree', 'Not specified')
-                    institution = edu.get('college_university', 'Not specified')
-                    field = edu.get('stream_field', 'Not specified')
-                    st.write(f"• **Degree:** {degree}")
-                    st.write(f"• **Institution:** {institution}")
-                    st.write(f"• **Field of Study:** {field}")
-                with col2:
-                    period = edu.get('year_period', 'Not specified')
-                    grade = edu.get('grade_cgpa_percentage', 'Not specified')
-                    st.write(f"• **Period:** {period}")
-                    st.write(f"• **Grade/CGPA:** {grade}")
-                st.write("")
-        else:
-            st.write("No education information provided")
-        
-        st.divider()
-        
-        # Projects Section - COMPLETE
-        st.subheader("🚀 Projects")
-        projects = resume.get('projects', [])
-        if projects:
-            for i, proj in enumerate(projects, 1):
-                st.write(f"**Project {i}:**")
-                
-                col1, col2 = st.columns(2)
-                with col1:
-                    title = proj.get('project_title', 'Not specified')
-                    tech = proj.get('technologies_course_semester', 'Not specified')
-                    duration = proj.get('start_end_date', 'Not specified')
-                    st.write(f"• **Title:** {title}")
-                    st.write(f"• **Technologies:** {tech}")
-                    st.write(f"• **Duration:** {duration}")
-                with col2:
-                    url = proj.get('url', '')
-                    team_size = proj.get('team_size', 'Not specified')
-                    budget = proj.get('budget_or_size', 'Not specified')
-                    
-                    if url and url.strip():
-                        st.write(f"• **URL:** [Project Link]({url})")
-                    else:
-                        st.write("• **URL:** Not provided")
-                    st.write(f"• **Team Size:** {team_size}")
-                    st.write(f"• **Budget/Size:** {budget}")
-                
-                description = proj.get('description', '')
-                if description and description.strip():
-                    st.write(f"• **Description:** {description}")
-                
-                outcome = proj.get('outcome_impact', '')
-                if outcome and outcome.strip():
-                    st.write(f"• **Outcome/Impact:** {outcome}")
-                
-                activities = proj.get('key_activities', [])
-                if activities:
-                    st.write(f"• **Key Activities:** {', '.join(activities)}")
-                
-                # Certificate info
-                certificate = proj.get('certificate', {})
-                if certificate and certificate.get('file_name'):
-                    st.write(f"• **Certificate:** {certificate.get('file_name')} (Uploaded: {certificate.get('uploaded_at', 'Unknown')})")
-                
-                st.write("")
-        else:
-            st.write("No projects provided")
-        
-        st.divider()
-        
-        # Certifications Section - COMPLETE
-        certifications = resume.get('certifications', [])
-        if certifications:
-            st.subheader("🏆 Certifications")
-            for i, cert in enumerate(certifications, 1):
-                if isinstance(cert, str) and cert.strip():
-                    st.write(f"{i}. {cert}")
-                elif isinstance(cert, dict):
-                    cert_name = cert.get('name', cert.get('certification', 'Unnamed Certification'))
-                    st.write(f"{i}. {cert_name}")
-        else:
-            st.write("**🏆 Certifications:** None provided")
-        
-        # Relevant Coursework Section - COMPLETE
-        coursework = resume.get('relevant_coursework', [])
-        if coursework:
-            st.subheader("📚 Relevant Coursework")
-            for i, course in enumerate(coursework, 1):
-                if isinstance(course, str) and course.strip():
-                    st.write(f"{i}. {course}")
-                elif isinstance(course, dict):
-                    course_name = course.get('name', course.get('course', 'Unnamed Course'))
-                    st.write(f"{i}. {course_name}")
-        else:
-            st.write("**📚 Relevant Coursework:** None provided")
-        
-        # Extracurricular & Hobbies Section - COMPLETE
-        extracurricular = resume.get('extracurricular_hobbies', [])
-        if extracurricular:
-            st.subheader("🎯 Extracurricular Activities & Hobbies")
-            for i, activity in enumerate(extracurricular, 1):
-                if isinstance(activity, str) and activity.strip():
-                    st.write(f"{i}. {activity}")
-                elif isinstance(activity, dict):
-                    activity_name = activity.get('name', activity.get('activity', 'Unnamed Activity'))
-                    st.write(f"{i}. {activity_name}")
-        else:
-            st.write("**🎯 Extracurricular Activities & Hobbies:** None provided")
-        
-        st.divider()
-        
-        # File Metadata Section
-        st.subheader("📄 File Information")
-        col1, col2, col3, col4 = st.columns(4)
-        with col1:
-            st.write(f"**File Name:** {resume.get('file_name', 'N/A')}")
-        with col2:
-            st.write(f"**File Type:** {resume.get('file_type', 'N/A')}")
-        with col3:
-            st.write(f"**Uploaded By:** {resume.get('uploaded_by', 'N/A')}")
-        with col4:
-            st.write(f"**Upload Date:** {resume.get('uploaded_at', 'N/A')}")
-        
-        # Raw Text Preview (Optional but useful for debugging)
-        with st.expander("📖 Raw Extracted Text Preview (First 2000 chars)"):
-            original_text = resume.get('original_text', '')
-            if original_text:
-                preview_text = original_text[:2000] + "..." if len(original_text) > 2000 else original_text
-                st.text_area("Extracted Text", preview_text, height=300, disabled=True)
-            else:
-                st.write("No extracted text available")
-        
-        # Debug: Show raw resume data structure
-        with st.expander("🔍 Debug: Raw Resume Data"):
-            st.json(resume)
-
 
 def main_app():
-    """Main application interface - FOCUSED ON CORE FEATURES"""
+    """Main application interface with Real-Time Analytics Dashboard"""
     with st.sidebar:
         st.title("🎯 Resume Screener")
         st.write(f"Welcome, {st.session_state.user_email}")
@@ -671,10 +1074,10 @@ def main_app():
         
         st.divider()
         
-        # Simplified navigation - NO QUESTIONS PAGE
+        # Updated navigation with Real-Time Analytics
         page = st.selectbox(
             "Choose Action", 
-            ["Upload Resumes", "Rank & Screen", "My Resumes"]
+            ["Upload Resumes", "Rank & Screen", "My Resumes", "📊 Real-Time Analytics"]
         )
     
     if page == "Upload Resumes":
@@ -683,6 +1086,8 @@ def main_app():
         ranking_page()
     elif page == "My Resumes":
         my_resumes_page()
+    elif page == "📊 Real-Time Analytics":
+        analytics_page()
 
 def main():
     """Main application entry point"""

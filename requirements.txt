@@ -9,3 +9,8 @@ docx2txt
 pdfplumber
 google-generativeai
 pymupdf
+websockets==11.0.3
+asyncio==3.4.3
+streamlit
+streamlit-aggrid
+plotly
