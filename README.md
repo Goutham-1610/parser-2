@@ -1,11 +1,11 @@
 
 # 🧠 Resume Parser & Auth API (FastAPI + MongoDB)
 
-This is a FastAPI-based backend service designed to:
-- **Parse and extract information from resumes**
-- **Provide authentication and user management APIs**
-- Use **MongoDB** as the primary database
-- Support **modular routing** for scalability
+This project is designed to support a **mechanical engineering recruitment system**, particularly for sectors like **automotive, aerospace, and manufacturing**. It uses FastAPI and MongoDB to provide a backend API that handles:
+
+- **Resume parsing** to extract structured engineering profiles
+- **Authentication system** for secure access
+- Designed to support automated applicant tracking and filtering for technical job roles
 
 ---
 
@@ -14,19 +14,19 @@ This is a FastAPI-based backend service designed to:
 - **Python 3.11+**
 - **FastAPI**
 - **MongoDB**
+- **Uvicorn**
+- **Python-dotenv**
 - **Pydantic**
-- **Uvicorn** (for ASGI server)
-- **Python-dotenv** (for environment variables)
 
 ---
 
 ## 🚀 Features
 
-- 🔐 **User Authentication** (via JWT or API key)
-- 📄 **Resume Parsing** – Uses NLP to extract structured information
-- 🧱 Modular design with routers, services, and database layers
-- 🔌 MongoDB integration
-- 📦 Dependency injection and clean folder structure
+- 🔐 User authentication and token-based access
+- 📄 Resume parsing and data extraction (ideal for filtering Mechanical Engineers)
+- 🧠 LLM prompt-based classification logic (for resume intelligence)
+- 📦 Modular API routes and clear folder structure
+- 🌐 MongoDB-based candidate database
 
 ---
 
@@ -39,12 +39,12 @@ git clone <your-repo-url>
 cd "parser 2"
 ```
 
-### 2. Create Virtual Environment & Activate
+### 2. Create Virtual Environment
 
 ```bash
 python -m venv venv
-source venv/bin/activate  # For Linux/Mac
-venv\Scripts\activate     # For Windows
+source venv/bin/activate  # Linux/Mac
+venv\Scripts\activate   # Windows
 ```
 
 ### 3. Install Dependencies
@@ -55,15 +55,11 @@ pip install -r requirements.txt
 
 ### 4. Create `.env` File
 
-Create a `.env` file in the root folder with the following variables:
-
 ```env
-MONGO_URI=mongodb+srv://<username>:<password>@<cluster>.mongodb.net
-DATABASE_NAME=your_database_name
+MONGO_URI=mongodb+srv://<user>:<password>@cluster.mongodb.net
+DATABASE_NAME=resume_parser
 SECRET_KEY=your_secret_key
 ```
-
-Replace the values accordingly.
 
 ---
 
@@ -73,37 +69,39 @@ Replace the values accordingly.
 uvicorn app.main:app --reload
 ```
 
-- The server will start at: `http://127.0.0.1:8000`
-- Swagger UI (API Docs): `http://127.0.0.1:8000/docs`
+Visit:
+- http://127.0.0.1:8000
+- Swagger docs: http://127.0.0.1:8000/docs
 
 ---
 
-## 📬 Example Endpoints
+---
 
-> 🧪 Check Swagger docs at `/docs` after running
+## 📬 Sample Endpoints
 
-- `POST /auth/login` – Login with credentials
-- `POST /auth/register` – Register a new user
-- `POST /parser/parse-resume` – Upload and parse a resume file
+- `POST /auth/register` – Register a recruiter or candidate
+- `POST /auth/login` – Authenticate user
+- `POST /parser/parse-resume` – Upload and parse resume for roles like "Mechanical Engineer – Automotive Systems"
 
 ---
 
-## 🛠️ To Do (Optional)
+## 🌟 Example Use Case
 
-- Add error handling and logging
-- Add unit tests for endpoints
-- Dockerize the application
-- Integrate with LLM for smarter resume parsing
+Veltrix Automotive receives hundreds of resumes for the **Mechanical Engineer – Automotive Systems** role. This API helps them:
+
+- Parse resumes to extract skills like **SolidWorks**, **FEA**, **GD&T**
+- Classify experience levels and flag suitable candidates
+- Authenticate recruiters to securely manage submissions
 
 ---
 
 ## 🧑 Author
 
 Developed by **Goutham G**  
-📧 Contact: goutham.g1602@gmail.com
+📧 Contact:goutham.g1602@gmail.com
 
 ---
 
 ## 📄 License
 
-This project is licensed under the MIT License.
+MIT License
