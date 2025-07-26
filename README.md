@@ -1,11 +1,7 @@
 
 # 🧠 Resume Parser & Auth API (FastAPI + MongoDB)
 
-This project is designed to support a **mechanical engineering recruitment system**, particularly for sectors like **automotive, aerospace, and manufacturing**. It uses FastAPI and MongoDB to provide a backend API that handles:
-
-- **Resume parsing** to extract structured engineering profiles
-- **Authentication system** for secure access
-- Designed to support automated applicant tracking and filtering for technical job roles
+This project is a backend API built with FastAPI and MongoDB to support **automated resume parsing, user authentication**, and **role-based candidate filtering**. It is suitable for recruitment systems across all domains such as IT, healthcare, engineering, finance, etc.
 
 ---
 
@@ -22,11 +18,12 @@ This project is designed to support a **mechanical engineering recruitment syste
 
 ## 🚀 Features
 
-- 🔐 User authentication and token-based access
-- 📄 Resume parsing and data extraction (ideal for filtering Mechanical Engineers)
-- 🧠 LLM prompt-based classification logic (for resume intelligence)
-- 📦 Modular API routes and clear folder structure
-- 🌐 MongoDB-based candidate database
+- 🔐 Secure user authentication with token-based access
+- 📄 Resume parsing and structured data extraction
+- 🧠 LLM-based classification support for job roles (optional)
+- 📦 Modular, clean, and scalable API architecture
+- 🌐 MongoDB integration for candidate database storage
+- 📊 Easily extendable for different domains (IT, finance, healthcare, etc.)
 
 ---
 
@@ -44,7 +41,7 @@ cd "parser 2"
 ```bash
 python -m venv venv
 source venv/bin/activate  # Linux/Mac
-venv\Scripts\activate   # Windows
+venv\Scripts\activate     # Windows
 ```
 
 ### 3. Install Dependencies
@@ -69,11 +66,9 @@ SECRET_KEY=your_secret_key
 uvicorn app.main:app --reload
 ```
 
-Visit:
-- http://127.0.0.1:8000
-- Swagger docs: http://127.0.0.1:8000/docs
-
----
+Access API:
+- Base URL: `http://127.0.0.1:8000`
+- Swagger UI: `http://127.0.0.1:8000/docs`
 
 ---
 
@@ -81,24 +76,25 @@ Visit:
 
 - `POST /auth/register` – Register a recruiter or candidate
 - `POST /auth/login` – Authenticate user
-- `POST /parser/parse-resume` – Upload and parse resume for roles like "Mechanical Engineer – Automotive Systems"
+- `POST /parser/parse-resume` – Upload and parse resumes (for any domain)
 
 ---
 
-## 🌟 Example Use Case
+## 🌟 Example Use Cases
 
-Veltrix Automotive receives hundreds of resumes for the **Mechanical Engineer – Automotive Systems** role. This API helps them:
+This API can be integrated into:
 
-- Parse resumes to extract skills like **SolidWorks**, **FEA**, **GD&T**
-- Classify experience levels and flag suitable candidates
-- Authenticate recruiters to securely manage submissions
+- A **job portal** to automate candidate screening  
+- An **HR tool** for sorting resumes by role/domain  
+- A **university portal** to process student resumes for placement  
+- A **staffing agency** to quickly match candidates to job descriptions
 
 ---
 
 ## 🧑 Author
 
 Developed by **Goutham G**  
-📧 Contact:goutham.g1602@gmail.com
+📧 Contact: goutham.g1602@gmail.com
 
 ---
 
