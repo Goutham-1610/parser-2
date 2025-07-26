@@ -88,16 +88,6 @@ uvicorn app.main:app --reload
 
 ---
 
-## 🧪 Testing
-
-To run tests (if implemented):
-
-```bash
-pytest
-```
-
----
-
 ## 🛠️ To Do (Optional)
 
 - Add error handling and logging
