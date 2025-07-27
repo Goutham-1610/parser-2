@@ -13,6 +13,7 @@ This project is a backend API built with FastAPI and MongoDB to support **automa
 - **Uvicorn**
 - **Python-dotenv**
 - **Pydantic**
+- **Passlib**
 
 ---
 
